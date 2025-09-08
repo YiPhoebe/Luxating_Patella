@@ -1,0 +1,40 @@
+# 전역 설정
+seed: 42
+
+data:
+  # 이미지가 저장된 루트 디렉토리 (JSON의 image_path를 이 기준으로 해석)
+  image_root: ./dataset
+  # 학습/검증에 사용할 JSON 주석 파일 목록
+  # 실제 JSON 경로(절대/상대경로)로 교체해서 사용
+  train_jsons:
+    - ./dataset/train.json
+  val_jsons:
+    - ./dataset/val.json
+  # 입력 설정
+  input_size: 224
+  use_bbox: True
+
+model:
+  # 선택: simple_cnn | resnet18 | resnet50 | resnet50_custom
+  name: resnet50
+  # simple_cnn에는 적용되지 않음, torchvision 백본에서만 사용
+  pretrained: true
+  num_classes: 2
+
+train:
+  batch_size: 32
+  lr: 0.0005
+  epochs: 30
+  early_stop_patience: 7
+  save_dir: ./checkpoints
+
+# 추론 옵션 (선택)
+inference:
+  tta_times: 4
+  thresholds:
+    low: 0.2
+    high: 0.8
+  quality_thresholds:
+    blur: 0.25
+    exposure: 0.4
+    framing: 0.4
