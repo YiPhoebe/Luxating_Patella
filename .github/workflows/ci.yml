@@ -19,10 +19,19 @@ jobs:
           python -m pip install -U pip
           pip install ruff pytest openai pygit2
 
+      # .github/workflows/ci.yml
       - name: Lint & Test
         run: |
-          ruff check .
-          pytest -q || true  # 실패해도 리뷰는 진행 (코멘트에 실패 내용 표시)
+          echo "== debug =="
+          pwd
+          ls -la
+          git ls-files | grep -E '^\.ruff\.toml$' || true
+          git ls-files | grep -E '^get-pip\.py$' || echo "get-pip.py not tracked (OK)"
+          echo "ruff version: $(ruff --version)"
+          echo "== run ruff =="
+          ruff check . --config ./.ruff.toml --exclude get-pip.py --exclude papers --exclude checkpoints || true
+          echo "== run pytest =="
+          pytest -q || true
 
       - name: Generate Haru Review
         env:

@@ -79,4 +79,3 @@ except Exception as e:
     print(f"[Haru Review] OpenAI call failed: {e}")
     # Keep CI green enough to still post something
     print("# 하류 리뷰 요약\n- OpenAI 호출 실패. CI 로그 확인 바람.")
-

@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Iterable, Tuple
+from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -21,7 +21,9 @@ class TemperatureScaler(nn.Module):
 
 
 @torch.no_grad()
-def _gather_logits_labels(model: nn.Module, dataloader, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
+def _gather_logits_labels(
+    model: nn.Module, dataloader, device: torch.device
+) -> Tuple[torch.Tensor, torch.Tensor]:
     model.eval()
     logits_all = []
     labels_all = []
@@ -34,7 +36,9 @@ def _gather_logits_labels(model: nn.Module, dataloader, device: torch.device) ->
     return torch.cat(logits_all, dim=0), torch.cat(labels_all, dim=0)
 
 
-def fit_temperature_from_logits(logits: torch.Tensor, labels: torch.Tensor, max_iter: int = 200) -> float:
+def fit_temperature_from_logits(
+    logits: torch.Tensor, labels: torch.Tensor, max_iter: int = 200
+) -> float:
     device = logits.device
     scaler = TemperatureScaler().to(device)
 
@@ -53,13 +57,18 @@ def fit_temperature_from_logits(logits: torch.Tensor, labels: torch.Tensor, max_
     return float(scaler.T.detach().cpu().item())
 
 
-def fit_temperature(model: nn.Module, val_loader, device: torch.device, max_iter: int = 200) -> float:
+def fit_temperature(
+    model: nn.Module, val_loader, device: torch.device, max_iter: int = 200
+) -> float:
     logits, labels = _gather_logits_labels(model, val_loader, device)
     return fit_temperature_from_logits(logits, labels, max_iter=max_iter)
 
 
 def save_calibration(temperature: float, path: str):
-    data = {"temperature": float(temperature), "updated_at": datetime.utcnow().isoformat() + "Z"}
+    data = {
+        "temperature": float(temperature),
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
     with open(path, "w") as f:
         json.dump(data, f)
 
@@ -71,4 +80,3 @@ def load_calibration(path: str) -> float:
         return float(data.get("temperature", 1.0))
     except Exception:
         return 1.0
-

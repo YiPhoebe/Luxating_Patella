@@ -2,3 +2,10 @@
 *.jpg
 *.png
 *.pt
+
+# misc
+get-pip.py
+*.zip
+papers/
+checkpoints/
+.DS_Store

@@ -1,6 +1,11 @@
-import os, json, cv2, numpy as np, torch
-from torch.utils.data import Dataset
+import json
+import os
 from typing import List
+
+import cv2
+import numpy as np
+import torch
+from torch.utils.data import Dataset
 
 # JSON 항목 예시:
 # {
@@ -17,7 +22,7 @@ def _square_pad(img: np.ndarray, value=0):
     pad = np.full((side, side), value, dtype=img.dtype)
     y0 = (side - h) // 2
     x0 = (side - w) // 2
-    pad[y0:y0 + h, x0:x0 + w] = img
+    pad[y0 : y0 + h, x0 : x0 + w] = img
     return pad
 
 
@@ -35,9 +40,12 @@ def _crop_with_margin(img: np.ndarray, bbox, margin=0.15):
     else:
         x1, y1, x2, y2 = bbox
     bw, bh = float(x2 - x1), float(y2 - y1)
-    mx = int(round(margin * bw)); my = int(round(margin * bh))
-    X1 = int(max(0, round(x1 - mx))); Y1 = int(max(0, round(y1 - my)))
-    X2 = int(min(w, round(x2 + mx))); Y2 = int(min(h, round(y2 + my)))
+    mx = int(round(margin * bw))
+    my = int(round(margin * bh))
+    X1 = int(max(0, round(x1 - mx)))
+    Y1 = int(max(0, round(y1 - my)))
+    X2 = int(min(w, round(x2 + mx)))
+    Y2 = int(min(h, round(y2 + my)))
     # Ensure valid box
     if X2 <= X1 or Y2 <= Y1:
         return img
@@ -57,8 +65,15 @@ def _clahe_norm(gray: np.ndarray):
 
 
 class KneeXrayDataset(Dataset):
-    def __init__(self, json_files: List[str], image_root: str, input_size=224,
-                 use_bbox=True, train=True, transforms=None):
+    def __init__(
+        self,
+        json_files: List[str],
+        image_root: str,
+        input_size=224,
+        use_bbox=True,
+        train=True,
+        transforms=None,
+    ):
         self.items = []
         self.image_root = image_root
         self.use_bbox = use_bbox
@@ -85,10 +100,12 @@ class KneeXrayDataset(Dataset):
         if self.use_bbox and "bbox" in e and e["bbox"] is not None:
             img = _crop_with_margin(img, e["bbox"], margin=0.15)
         img = _square_pad(img, value=0)
-        img = cv2.resize(img, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+        img = cv2.resize(
+            img, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA
+        )
         img = _clahe_norm(img)
         if self.transforms:
-            import albumentations as A
+
             aug = self.transforms(image=np.stack([img, img, img], axis=-1))
             img3 = aug["image"]  # usually torch.Tensor(C,H,W)
         else:

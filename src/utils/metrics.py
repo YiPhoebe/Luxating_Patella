@@ -17,4 +17,3 @@ def precision_recall_f1(outputs, targets, positive_class=1):
     recall = tp / (tp + fn + 1e-9)
     f1 = 2 * precision * recall / (precision + recall + 1e-9)
     return precision, recall, f1
-

@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Tuple
-import numpy as np
+
 import cv2
+import numpy as np
 
 
 def blur_score(gray_u8: np.ndarray) -> float:
@@ -23,7 +24,9 @@ def exposure_score(gray_u8: np.ndarray) -> float:
     return float(score)
 
 
-def framing_score(gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]] = None) -> float:
+def framing_score(
+    gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]] = None
+) -> float:
     h, w = gray_u8.shape[:2]
     if bbox is None:
         return 0.5  # 알 수 없음(중간값 가정)
@@ -36,7 +39,7 @@ def framing_score(gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]]
     if area_ratio <= 0:
         return 0.0
     mid = 0.35
-    score_area = np.exp(-((area_ratio - mid) ** 2) / (2 * (0.2 ** 2)))  # 0..1
+    score_area = np.exp(-((area_ratio - mid) ** 2) / (2 * (0.2**2)))  # 0..1
     cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
     dx = abs(cx - w / 2) / (w / 2)
     dy = abs(cy - h / 2) / (h / 2)
@@ -45,7 +48,9 @@ def framing_score(gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]]
     return float(0.6 * score_area + 0.4 * score_center)
 
 
-def quality_scores(gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]] = None) -> Dict[str, float]:
+def quality_scores(
+    gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]] = None
+) -> Dict[str, float]:
     return {
         "blur": blur_score(gray_u8),
         "exposure": exposure_score(gray_u8),
@@ -53,12 +58,17 @@ def quality_scores(gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]
     }
 
 
-def quality_gate(gray_u8: np.ndarray, bbox: Optional[Tuple[int, int, int, int]] = None,
-                 thresholds: Optional[Dict[str, float]] = None) -> Dict:
+def quality_gate(
+    gray_u8: np.ndarray,
+    bbox: Optional[Tuple[int, int, int, int]] = None,
+    thresholds: Optional[Dict[str, float]] = None,
+) -> Dict:
     if thresholds is None:
         thresholds = {"blur": 0.25, "exposure": 0.4, "framing": 0.4}
     scores = quality_scores(gray_u8, bbox)
     passed = all(scores[k] >= thresholds.get(k, 0.0) for k in scores)
     # 가중 합산 품질 점수 요약
-    quality = float(0.5 * scores["blur"] + 0.3 * scores["exposure"] + 0.2 * scores["framing"])
+    quality = float(
+        0.5 * scores["blur"] + 0.3 * scores["exposure"] + 0.2 * scores["framing"]
+    )
     return {"scores": scores, "quality": quality, "passed": passed}

@@ -1,0 +1,9 @@
+line-length = 120
+exclude = ["get-pip.py", "papers", "checkpoints", "*.zip", ".venv", "venv"]
+
+[lint]
+select = ["E","F","I"]
+
+[lint.per-file-ignores]
+"scripts/*.py" = ["E401","E702"]
+"server/*.py"  = ["E401","E702"]

@@ -1,13 +1,18 @@
-import os, sys, json, torch, cv2, numpy as np
+import os
+import sys
 from os.path import abspath, dirname, join
+
+import cv2
+import numpy as np
+import torch
 
 # Ensure project root is on sys.path when running as a script
 sys.path.insert(0, abspath(join(dirname(__file__), "..")))
-from src.utils.device import get_device
+from src.datasets.knee_xray import _clahe_norm, _crop_with_margin, _square_pad
 from src.models.factory import build_model
-from src.datasets.knee_xray import _square_pad, _crop_with_margin, _clahe_norm
-from src.train.calibrate import load_calibration
 from src.serving.inference import predict_tta
+from src.train.calibrate import load_calibration
+from src.utils.device import get_device
 
 
 def preprocess(img_path, input_size=224, bbox=None):
@@ -25,8 +30,11 @@ if __name__ == "__main__":
     device = get_device()
     ckpt = torch.load("./checkpoints/resnet18_best.pt", map_location=device)
     cfg = ckpt["config"]
-    model = build_model(cfg["model"]["name"], False, cfg["model"]["num_classes"]).to(device)
-    model.load_state_dict(ckpt["model"]); model.eval()
+    model = build_model(cfg["model"]["name"], False, cfg["model"]["num_classes"]).to(
+        device
+    )
+    model.load_state_dict(ckpt["model"])
+    model.eval()
 
     x = preprocess("./data/example.jpg", input_size=cfg["data"]["input_size"])
     T = load_calibration(os.path.join("./checkpoints", "calib.json"))
