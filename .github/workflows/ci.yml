@@ -1,7 +1,9 @@
 name: CI + Haru Review
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
   test-and-review:
     runs-on: ubuntu-latest
@@ -22,6 +24,7 @@ jobs:
       # .github/workflows/ci.yml
       - name: Lint & Test
         run: |
+<<<<<<< HEAD
           echo "== debug =="
           pwd
           ls -la
@@ -31,6 +34,9 @@ jobs:
           echo "== run ruff =="
           ruff check . --config ./.ruff.toml --exclude get-pip.py --exclude papers --exclude checkpoints || true
           echo "== run pytest =="
+=======
+          ruff check . --config ./.ruff.toml --exclude get-pip.py --exclude papers --exclude checkpoints || true
+>>>>>>> e547c00 (ci: minimal valid workflow for PRs)
           pytest -q || true
 
       - name: Generate Haru Review
@@ -46,4 +52,3 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body-file: review.md
-
