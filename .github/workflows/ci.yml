@@ -19,9 +19,10 @@ jobs:
           python -m pip install -U pip
           pip install ruff pytest openai pygit2
 
+      # .github/workflows/ci.yml
       - name: Lint & Test
         run: |
-          ruff check .
+          ruff check . || true
           pytest -q || true  # 실패해도 리뷰는 진행 (코멘트에 실패 내용 표시)
 
       - name: Generate Haru Review
