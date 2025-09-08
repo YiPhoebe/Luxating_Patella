@@ -1,4 +1,8 @@
-import os, random, numpy as np, torch
+import os
+import random
+
+import numpy as np
+import torch
 
 
 def set_seed(seed: int = 42):
@@ -8,4 +12,3 @@ def set_seed(seed: int = 42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.use_deterministic_algorithms = False
-

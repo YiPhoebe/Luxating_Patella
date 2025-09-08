@@ -1,32 +1,26 @@
-import torch
-import torch.nn.functional as F
-import numpy as np
 import cv2
+import numpy as np
+import torch.nn.functional as F
 
 # Try external pytorch-grad-cam first; fall back to local impl
 try:
     from pytorch_grad_cam import GradCAM as _ExtGradCAM
     from pytorch_grad_cam.utils.image import show_cam_on_image as _ext_show_cam_on_image
-    from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget as _ExtTarget
+    from pytorch_grad_cam.utils.model_targets import (
+        ClassifierOutputTarget as _ExtTarget,
+    )
+
     _HAS_EXT = True
 except Exception:
     _HAS_EXT = False
 
 
-def _normalize_minmax(arr: np.ndarray) -> np.ndarray:
-    mn = float(arr.min())
-    mx = float(arr.max())
+def _normalize_minmax(x: np.ndarray) -> np.ndarray:
+    mn = float(x.min())
+    mx = float(x.max())
     if mx - mn < 1e-12:
-        return np.zeros_like(arr, dtype=np.float32)
-    return (arr - mn) / (mx - mn)
-
-
-def _normalize_minmax(arr: np.ndarray) -> np.ndarray:
-    mn = float(arr.min())
-    mx = float(arr.max())
-    if mx - mn < 1e-12:
-        return np.zeros_like(arr, dtype=np.float32)
-    return (arr - mn) / (mx - mn)
+        return np.zeros_like(x, dtype=np.float32)
+    return (x - mn) / (mx - mn)
 
 
 def _get_cam_on_input_fallback(model, input_tensor, target_layer, class_idx=None):
@@ -57,7 +51,7 @@ def _get_cam_on_input_fallback(model, input_tensor, target_layer, class_idx=None
         loss.backward()
 
         A = activations[-1]  # (B, C, h, w)
-        dA = gradients[-1]   # (B, C, h, w)
+        dA = gradients[-1]  # (B, C, h, w)
         weights = dA.mean(dim=(2, 3), keepdim=True)  # (B, C, 1, 1)
         cam = (A * weights).sum(dim=1)  # (B, h, w)
         cam = F.relu(cam)
@@ -66,7 +60,9 @@ def _get_cam_on_input_fallback(model, input_tensor, target_layer, class_idx=None
 
         # Resize CAM to input size
         _, _, H, W = input_tensor.shape
-        cam_resized = cv2.resize(cam_np.astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR)
+        cam_resized = cv2.resize(
+            cam_np.astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR
+        )
 
         # Prepare input image (0..1, HxWxC)
         x = input_tensor.detach().cpu()[0]
@@ -77,8 +73,10 @@ def _get_cam_on_input_fallback(model, input_tensor, target_layer, class_idx=None
         # Colorize CAM and overlay
         heatmap = (cam_resized * 255.0).astype(np.uint8)
         heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-        overlay = (0.5 * heatmap_color + 0.5 * x)
+        heatmap_color = (
+            cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        )
+        overlay = 0.5 * heatmap_color + 0.5 * x
         overlay = np.clip(overlay * 255.0, 0, 255).astype(np.uint8)
 
         return overlay, cam_resized.astype(np.float32)

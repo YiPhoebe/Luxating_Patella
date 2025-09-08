@@ -23,7 +23,7 @@ jobs:
       - name: Lint & Test
         run: |
           ruff check . || true
-          pytest -q || true  # 실패해도 리뷰는 진행 (코멘트에 실패 내용 표시)
+          pytest -q || true
 
       - name: Generate Haru Review
         env:

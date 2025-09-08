@@ -1,4 +1,5 @@
-from typing import Dict, Tuple
+from typing import Dict
+
 import torch
 import torch.nn.functional as F
 
@@ -18,7 +19,9 @@ def _apply_tta(x: torch.Tensor, tta_id: int) -> torch.Tensor:
 
 
 @torch.no_grad()
-def predict_tta(model, x: torch.Tensor, device: torch.device, tta: int = 4, temperature: float = 1.0) -> Dict:
+def predict_tta(
+    model, x: torch.Tensor, device: torch.device, tta: int = 4, temperature: float = 1.0
+) -> Dict:
     model.eval()
     probs_all = []
     logits_all = []

@@ -1,10 +1,16 @@
 from typing import Dict
 
 
-def decide_message(prob_pos: float, sigma_pos: float, quality: float,
-                   low_th: float = 0.2, high_th: float = 0.8,
-                   sigma_th: float = 0.06, quality_th: float = 0.5) -> Dict:
-    ood_flag = (quality < quality_th)
+def decide_message(
+    prob_pos: float,
+    sigma_pos: float,
+    quality: float,
+    low_th: float = 0.2,
+    high_th: float = 0.8,
+    sigma_th: float = 0.06,
+    quality_th: float = 0.5,
+) -> Dict:
+    ood_flag = quality < quality_th
     if ood_flag or (low_th < prob_pos < high_th) or (sigma_pos > sigma_th):
         return {
             "label": "uncertain",
@@ -22,4 +28,3 @@ def decide_message(prob_pos: float, sigma_pos: float, quality: float,
         "message": "정상 소견으로 판단됩니다.",
         "ood_flag": False,
     }
-

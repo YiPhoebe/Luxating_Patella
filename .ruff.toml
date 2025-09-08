@@ -1,4 +1,5 @@
-exclude = ["get-pip.py","papers","checkpoints","*.zip",".venv","venv"]
+line-length = 120
+exclude = ["get-pip.py", "papers", "checkpoints", "*.zip", ".venv", "venv"]
 
 [lint]
 select = ["E","F","I"]

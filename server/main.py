@@ -1,15 +1,21 @@
-import torch, cv2, numpy as np, json, base64, os
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import JSONResponse
-from src.utils.device import get_device
-from src.models.factory import build_model
-from src.datasets.knee_xray import _square_pad, _crop_with_margin, _clahe_norm
-from src.utils.gradcam import get_cam_on_input
-from src.train.calibrate import load_calibration
-from src.serving.inference import predict_tta
-from src.datacheck.quality_gate import quality_gate
-from src.serving.policy_engine import decide_message
+import base64
+import json
+import os
 
+import cv2
+import numpy as np
+import torch
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.responses import JSONResponse
+
+from src.datacheck.quality_gate import quality_gate
+from src.datasets.knee_xray import _clahe_norm, _crop_with_margin, _square_pad
+from src.models.factory import build_model
+from src.serving.inference import predict_tta
+from src.serving.policy_engine import decide_message
+from src.train.calibrate import load_calibration
+from src.utils.device import get_device
+from src.utils.gradcam import get_cam_on_input
 
 app = FastAPI(title="PatellaLuxation AI MVP")
 DEVICE = get_device()
@@ -17,7 +23,8 @@ CKPT = "./checkpoints/resnet18_best.pt"
 ckpt = torch.load(CKPT, map_location=DEVICE)
 cfg = ckpt["config"]
 model = build_model(cfg["model"]["name"], False, cfg["model"]["num_classes"]).to(DEVICE)
-model.load_state_dict(ckpt["model"]); model.eval()
+model.load_state_dict(ckpt["model"])
+model.eval()
 
 
 def preprocess_bytes(bytes_, input_size=224, bbox=None):
@@ -38,7 +45,9 @@ async def predict(file: UploadFile = File(...), bbox: str = Form(default=None)):
     try:
         bytes_ = await file.read()
         bbox_val = json.loads(bbox) if bbox else None
-        x, gray_u8 = preprocess_bytes(bytes_, input_size=cfg["data"]["input_size"], bbox=bbox_val)
+        x, gray_u8 = preprocess_bytes(
+            bytes_, input_size=cfg["data"]["input_size"], bbox=bbox_val
+        )
         x = x.to(DEVICE)
         # 품질 게이트 평가
         q = quality_gate(gray_u8, bbox=bbox_val)
@@ -50,14 +59,21 @@ async def predict(file: UploadFile = File(...), bbox: str = Form(default=None)):
         sigma_arr = out["uncertainty_std"][0].cpu().numpy()
         pred = int(np.argmax(probs_arr))
         # 정책 결정 (클래스 1이 양성이라고 가정)
-        prob_pos = float(probs_arr[1]) if probs_arr.shape[0] > 1 else float(probs_arr[0])
-        sigma_pos = float(sigma_arr[1]) if sigma_arr.shape[0] > 1 else float(sigma_arr[0])
-        policy = decide_message(prob_pos, sigma_pos, q["quality"], low_th=0.2, high_th=0.8)
+        prob_pos = (
+            float(probs_arr[1]) if probs_arr.shape[0] > 1 else float(probs_arr[0])
+        )
+        sigma_pos = (
+            float(sigma_arr[1]) if sigma_arr.shape[0] > 1 else float(sigma_arr[0])
+        )
+        policy = decide_message(
+            prob_pos, sigma_pos, q["quality"], low_th=0.2, high_th=0.8
+        )
 
         # Grad-CAM
         try:
             # 마지막 Conv2d 레이어를 CAM 타깃으로 선택
             import torch.nn as nn
+
             target_layer = None
             for m in reversed(list(model.modules())):
                 if isinstance(m, nn.Conv2d):
