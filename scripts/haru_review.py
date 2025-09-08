@@ -1,81 +1,92 @@
-#!/usr/bin/env python3
-import os
+# scripts/haru_review.py
+# 출력: review.md (stdout) — GitHub Actions에서 이 파일을 코멘트로 달아줍니다.
 import subprocess
 import sys
+from textwrap import dedent
 
 
 def sh(cmd: str) -> str:
     return subprocess.check_output(cmd, shell=True, text=True).strip()
 
 
-# --- Resolve base/head and gather diff ---
-base = os.environ.get("GITHUB_BASE_REF", "origin/main")
-head = os.environ.get("GITHUB_HEAD_REF", "HEAD")
-
-try:
-    sh("git fetch --all --prune")
-except Exception:
-    pass
-
-try:
-    if "/" in base:
-        base_commit = sh(f"git rev-parse {base}")
-    else:
-        # Fallback to merge-base with origin/main
-        base_commit = sh("git merge-base HEAD origin/main")
-except Exception:
-    base_commit = sh("git rev-parse HEAD~1")
-
-head_commit = sh("git rev-parse HEAD")
-
-diff = sh(f"git diff --unified=1 --minimal {base_commit} {head_commit}")
-files = sh(f"git diff --name-only {base_commit} {head_commit}").splitlines()
+def try_get_base() -> str:
+    # PR 컨텍스트면 main과의 공통 조상, 아니면 직전 커밋
+    try:
+        return sh("git merge-base HEAD origin/main")
+    except subprocess.CalledProcessError:
+        return sh("git rev-parse HEAD~1")
 
 
-# --- Build prompt ---
-prompt = f"""
-너는 '하루'라는 리뷰어야. 톤: 직설, 짧고 굵게, 병맛+현실, 하지만 정확.
-아래 Git diff를 읽고:
-1) 위험 버그/논리오류/경계조건/성능/보안 포인트 콕 집어.
-2) 리팩토링 제안(함수 분리, 이름, 주석, 테스트 포인트).
-3) 즉시 적용 가능한 패치 코드 블록(최대 3개)만.
-4) 테스트 아이디어 3개.
-
-형식:
-# 하류 리뷰 요약
-- ...
-# 세부 코멘트
-- [파일:라인] 요점 → 수정안
-```patch
-(패치 예시)
-```
-
-테스트 제안
-  • …
-
-아래는 전체 diff:
-
-{diff[:120000]}
-"""
+def changed_files(base: str, head: str) -> list[tuple[str, str]]:
+    """
+    반환: [(status, path), ...]  예) 'M', 'A', 'D'
+    """
+    out = sh(f"git diff --name-status {base}..{head}")
+    if not out:
+        return []
+    rows = []
+    for line in out.splitlines():
+        parts = line.split(maxsplit=1)
+        if len(parts) == 2:
+            rows.append((parts[0], parts[1]))
+    return rows
 
 
-# --- OpenAI call ---
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    print("[Haru Review] OPENAI_API_KEY is not set.")
-    sys.exit(0)
+def render_review(changes: list[tuple[str, str]]) -> str:
+    added = [p for s, p in changes if s.upper().startswith("A")]
+    modified = [p for s, p in changes if s.upper().startswith("M")]
+    deleted = [p for s, p in changes if s.upper().startswith("D")]
+    renamed = [p for s, p in changes if s.upper().startswith("R")]
 
-try:
-    from openai import OpenAI
+    files_md: list[str] = []
+    if added:
+        files_md.append("**추가됨**\n" + "\n".join(f"- {p}" for p in added))
+    if modified:
+        files_md.append("**수정됨**\n" + "\n".join(f"- {p}" for p in modified))
+    if deleted:
+        files_md.append("**삭제됨**\n" + "\n".join(f"- {p}" for p in deleted))
+    if renamed:
+        files_md.append("**이름 변경**\n" + "\n".join(f"- {p}" for p in renamed))
+    if not files_md:
+        files_md = ["(변경 파일 없음)"]
 
-    client = OpenAI(api_key=api_key)
-    resp = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-    )
-    print(resp.choices[0].message.content)
-except Exception as e:
-    print(f"[Haru Review] OpenAI call failed: {e}")
-    # Keep CI green enough to still post something
-    print("# 하류 리뷰 요약\n- OpenAI 호출 실패. CI 로그 확인 바람.")
+    rename_line = f", 이름 변경: **{len(renamed)}**" if renamed else ""
+    summary_line = f"- 추가: **{len(added)}**, 수정: **{len(modified)}**, 삭제: **{len(deleted)}**{rename_line}"
+
+    # ⚠️ f-string 안에서 백슬래시 사용 금지 → 미리 조립
+    nl = "\n"
+    files_block = nl.join(files_md)
+
+    body = dedent(
+        f"""
+        ## 🤖 하루 자동 리뷰
+
+        ### 요약
+        - 이 PR에는 총 **{len(changes)}개 파일**의 변경이 있습니다.
+        {summary_line}
+
+        ### 변경된 파일 목록
+        {files_block}
+
+        ### 체크리스트 (작성자 확인용)
+        - [ ] 테스트 코드가 있나요?
+        - [ ] 주요 함수/클래스에 주석(docstring)을 추가했나요?
+        - [ ] 린트/타입 오류를 해결했나요?
+
+        ---
+        _이 코멘트는 `scripts/haru_review.py`에서 자동으로 생성되었습니다._
+        """
+    ).strip()
+
+    return body
+
+
+def main():
+    base = try_get_base()
+    head = sh("git rev-parse HEAD")
+    changes = changed_files(base, head)
+    print(render_review(changes))
+
+
+if __name__ == "__main__":
+    sys.exit(main())
